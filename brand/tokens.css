@@ -1,0 +1,41 @@
+/*
+  Tokens de marca — CF Tech (Ceará Finance)
+  Fonte: "CF Tech Brand Kit v2" — seguir à risca, sem improviso.
+
+  Regra de proporção: papel 70% / tinta 22% / roxo 6% / grafite 2%.
+  Roxo nunca ocupa área maior que 1/6 da página.
+  Roxo fumê (#8C79C0) só é usado sobre fundo escuro; sobre fundo
+  claro o roxo é sempre o profundo (#3B0764).
+
+  Proibido: glow, sombra, gradiente, cantos arredondados na marca,
+  fechar os colchetes da marca em moldura, trocar Familjen Grotesk
+  no wordmark.
+*/
+
+:root {
+  /* Cores */
+  --cf-tinta: #0A0A0B;
+  --cf-papel: #F5F3EF;
+  --cf-fundo-pagina: #E9E7E2;
+  --cf-roxo-profundo: #3B0764;
+  --cf-roxo-fume: #8C79C0;
+  --cf-roxo-bg: #2A0A47;
+  --cf-grafite: #5A5A62;
+  --cf-grafite-claro: #8A8A93;
+  --cf-hairline: #D8D4CB;
+  --cf-hairline-escuro: #2A2A30;
+  --cf-roxo-texto-claro: #D9CFF0;
+
+  /* Tipografia */
+  --cf-font-display: 'Familjen Grotesk', sans-serif;   /* titulos, wordmark — peso 600 */
+  --cf-font-texto: 'Space Grotesk', sans-serif;         /* corpo/UI — peso 300-500 */
+  --cf-font-mono: 'JetBrains Mono', monospace;          /* dados, rotulos, timestamps */
+
+  /* Tracking padrao */
+  --cf-tracking-display: -0.02em;
+  --cf-tracking-mono-label: 0.18em;
+  --cf-tracking-mono-tag: 0.22em;
+}
+
+/* Google Fonts (mesmo import usado no Brand Kit oficial) */
+@import url('https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@400;500;600;700&family=Space+Grotesk:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
