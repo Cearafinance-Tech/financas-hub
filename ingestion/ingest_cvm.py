@@ -24,6 +24,7 @@ Variaveis opcionais:
 """
 
 import io
+import math
 import os
 import re
 import zipfile
@@ -64,6 +65,17 @@ def em_lotes(itens, tamanho=TAMANHO_LOTE):
         yield itens[i:i + tamanho]
 
 
+def registros_sem_nan(registros: list[dict]) -> list[dict]:
+    """Troca float('nan') por None (JSON nao aceita NaN; o pandas reverte
+    None para NaN em colunas que passaram por .where(), entao a limpeza
+    precisa acontecer depois do to_dict, nao antes)."""
+    for r in registros:
+        for k, v in r.items():
+            if isinstance(v, float) and math.isnan(v):
+                r[k] = None
+    return registros
+
+
 def baixar_zip(url: str) -> zipfile.ZipFile:
     print(f"Baixando: {url}")
     resp = requests.get(url, timeout=120)
@@ -95,8 +107,7 @@ def ingerir_cadastro(client) -> set:
         "SETOR_ATIV": "setor_atividade",
     }
     saida = df[list(colunas)].rename(columns=colunas)
-    saida = saida.where(pd.notna(saida), None)
-    registros = saida.to_dict("records")
+    registros = registros_sem_nan(saida.to_dict("records"))
 
     total = 0
     for lote in em_lotes(registros):
@@ -146,8 +157,7 @@ def normalizar_demonstrativo(df: pd.DataFrame, cd_cvm_validos: set) -> list[dict
             df[origem] = None
 
     saida = df[list(colunas)].rename(columns=colunas)
-    saida = saida.where(pd.notna(saida), None)
-    return saida.to_dict("records")
+    return registros_sem_nan(saida.to_dict("records"))
 
 
 def ingerir_demonstrativos(client, tipo: str, ano: int, cd_cvm_validos: set):
@@ -228,8 +238,7 @@ def ingerir_ipe(client, ano: int, cd_cvm_validos: set):
         "Link_Download": "link_download",
     }
     saida = df[list(colunas)].rename(columns=colunas)
-    saida = saida.where(pd.notna(saida), None)
-    registros = saida.to_dict("records")
+    registros = registros_sem_nan(saida.to_dict("records"))
 
     total = 0
     for lote in em_lotes(registros):
