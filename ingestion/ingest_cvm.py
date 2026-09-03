@@ -240,8 +240,11 @@ def ingerir_ipe(client, ano: int, cd_cvm_validos: set):
 
 def main():
     ano_atual = date.today().year
-    ano_inicial = int(os.environ.get("CVM_ANO_INICIAL", ano_atual - 5))
-    ano_final = int(os.environ.get("CVM_ANO_FINAL", ano_atual))
+    # os.environ.get(..., default) nao cobre string vazia: o GitHub Actions manda
+    # "" (nao omite a variavel) quando um input opcional de workflow_dispatch
+    # fica em branco, entao o "or" trata esse caso tambem.
+    ano_inicial = int(os.environ.get("CVM_ANO_INICIAL") or ano_atual - 5)
+    ano_final = int(os.environ.get("CVM_ANO_FINAL") or ano_atual)
 
     client = cliente_supabase()
     cd_cvm_validos = ingerir_cadastro(client)
