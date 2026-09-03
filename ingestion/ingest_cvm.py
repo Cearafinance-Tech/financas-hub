@@ -199,6 +199,7 @@ def ingerir_demonstrativos(client, tipo: str, ano: int, cd_cvm_validos: set):
         for r in registros:
             r["tipo_documento"] = tipo
             r["ano_documento"] = ano
+            r["demonstrativo"] = demonstrativo
             r["consolidado"] = True
 
         for lote in em_lotes(registros):
