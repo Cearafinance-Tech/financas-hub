@@ -92,6 +92,9 @@ def ingerir_cadastro(client) -> set:
     df["CD_CVM"] = pd.to_numeric(df["CD_CVM"], errors="coerce")
     df = df.dropna(subset=["CD_CVM"])
     df["CD_CVM"] = df["CD_CVM"].astype(int)
+    # o cadastro traz linhas duplicadas para o mesmo CD_CVM (historico de
+    # cadastro); cd_cvm e chave do upsert, entao precisa ser unico no lote.
+    df = df.drop_duplicates(subset=["CD_CVM"], keep="last")
     df["CNPJ_CIA"] = df["CNPJ_CIA"].apply(only_digits)
     df["DENOM_COMERC"] = df["DENOM_COMERC"].fillna(df["DENOM_SOCIAL"])
 
@@ -157,6 +160,11 @@ def normalizar_demonstrativo(df: pd.DataFrame, cd_cvm_validos: set) -> list[dict
             df[origem] = None
 
     saida = df[list(colunas)].rename(columns=colunas)
+    # a CVM as vezes repete a mesma linha (mesmo valor) na fonte; a chave
+    # abaixo espelha o indice unico da tabela e evita erro de conflito
+    # duplicado dentro do mesmo lote de insert.
+    chave = ["cd_cvm", "cd_conta", "ordem_exerc", "dt_refer", "dt_ini_exerc", "dt_fim_exerc", "coluna_df"]
+    saida = saida.drop_duplicates(subset=chave, keep="last")
     return registros_sem_nan(saida.to_dict("records"))
 
 
@@ -238,6 +246,7 @@ def ingerir_ipe(client, ano: int, cd_cvm_validos: set):
         "Link_Download": "link_download",
     }
     saida = df[list(colunas)].rename(columns=colunas)
+    saida = saida.drop_duplicates(subset=["cd_cvm", "link_download", "versao"], keep="last")
     registros = registros_sem_nan(saida.to_dict("records"))
 
     total = 0
