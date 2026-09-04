@@ -32,9 +32,13 @@ const statusDownload = document.getElementById("status-download");
 let empresaSelecionada = null;
 let debounceTimer = null;
 
+// A CVM so disponibiliza esse formato estruturado de DFP a partir de 2010
+// (padrao contabil atual); 2009 pra tras nao existe nesse layout.
+const PRIMEIRO_ANO_DISPONIVEL = 2010;
+
 function preencherAnos() {
   const anoAtual = new Date().getFullYear();
-  for (let ano = anoAtual - 1; ano >= anoAtual - 8; ano--) {
+  for (let ano = anoAtual - 1; ano >= PRIMEIRO_ANO_DISPONIVEL; ano--) {
     for (const sel of [seletorAnoInicial, seletorAnoFinal]) {
       const opt = document.createElement("option");
       opt.value = String(ano);
