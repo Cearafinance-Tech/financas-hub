@@ -318,3 +318,40 @@ botaoGerar.addEventListener("click", async () => {
 });
 
 preencherAnos();
+
+// -------------------- Spotlight dos pilares (avanca sozinho) --------------------
+
+function iniciarSpotlightPilares() {
+  const pilares = Array.from(document.querySelectorAll("#hero-pilares .pilar"));
+  if (pilares.length === 0) return;
+
+  const reduzMovimento = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let indiceAtivo = 0;
+  let temporizador = null;
+
+  function ativar(indice) {
+    indiceAtivo = indice;
+    pilares.forEach((p, i) => p.classList.toggle("ativo", i === indice));
+  }
+
+  function proximo() {
+    ativar((indiceAtivo + 1) % pilares.length);
+  }
+
+  function reiniciarCiclo() {
+    clearInterval(temporizador);
+    if (!reduzMovimento) temporizador = setInterval(proximo, 4500);
+  }
+
+  pilares.forEach((p, i) => {
+    p.addEventListener("click", () => {
+      ativar(i);
+      reiniciarCiclo();
+    });
+  });
+
+  ativar(0);
+  reiniciarCiclo();
+}
+
+iniciarSpotlightPilares();

@@ -14,20 +14,18 @@ html, body {
   to { opacity: 1; transform: translateY(0); }
 }
 
-@keyframes pisca {
-  0%, 45% { opacity: 1; }
-  50%, 95% { opacity: 0; }
-  100% { opacity: 1; }
-}
-
 @keyframes girar {
   to { transform: rotate(360deg); }
 }
 
-/* Faixa decorativa no topo — referencia o eixo de construcao do manual de marca */
-.faixa-eixo {
-  height: 3px;
-  background: linear-gradient(90deg, var(--cf-roxo-profundo) 0%, var(--cf-roxo-profundo) 40%, var(--cf-hairline) 40%, var(--cf-hairline) 100%);
+@keyframes mover {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+@keyframes preencher {
+  from { width: 0%; }
+  to { width: 100%; }
 }
 
 /* Marca d'agua do touro — reforca a marca e ocupa o vazio em telas largas,
@@ -53,84 +51,97 @@ html, body {
   padding: 0 24px 80px;
 }
 
-header.topo {
+/* Masthead — a marca ocupa toda a largura do topo, bem grande */
+.masthead {
+  background: var(--cf-tinta);
+  padding: 52px 40px 44px;
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 32px 0 8px;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 20px;
+  border-bottom: 4px solid var(--cf-roxo-profundo);
 }
 
-.logo-grande {
-  width: 46px;
-  height: 46px;
+.masthead-linha {
+  display: flex;
+  align-items: center;
+  gap: clamp(16px, 3vw, 28px);
+}
+
+.masthead-logo {
+  width: clamp(52px, 7vw, 92px);
+  height: clamp(52px, 7vw, 92px);
   display: block;
   transition: transform 0.4s ease;
 }
 
-.logo-grande:hover {
+.masthead-logo:hover {
   transform: rotate(-6deg) scale(1.05);
 }
 
-.lockup {
+.masthead-lockup {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 8px;
 }
 
-.lockup .wordmark {
+.masthead-wordmark {
   font-family: var(--cf-font-display);
   font-weight: 700;
-  font-size: 24px;
-  letter-spacing: var(--cf-tracking-display);
-  line-height: 1;
+  font-size: clamp(38px, 6.5vw, 84px);
+  line-height: 0.95;
+  letter-spacing: -0.02em;
+  color: var(--cf-papel);
 }
 
-.lockup .wordmark .roxo {
-  color: var(--cf-roxo-profundo);
-}
+.masthead-wordmark .roxo { color: var(--cf-roxo-fume); }
 
-.lockup .tagline {
+.masthead-tagline {
   font-family: var(--cf-font-mono);
-  font-size: 9px;
-  letter-spacing: 0.32em;
-  color: var(--cf-grafite);
+  font-size: clamp(8.5px, 1vw, 11px);
+  letter-spacing: 0.26em;
+  color: var(--cf-grafite-claro);
 }
 
-header.topo .tag {
+.masthead-tag {
   font-family: var(--cf-font-mono);
-  font-size: 10px;
-  letter-spacing: var(--cf-tracking-mono-tag);
-  color: var(--cf-roxo-profundo);
-  border-left: 1px solid var(--cf-hairline);
-  padding-left: 12px;
-  margin-left: auto;
-  align-self: center;
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  color: var(--cf-roxo-fume);
+  border-left: 1px solid var(--cf-hairline-escuro);
+  padding-left: 16px;
 }
 
-.ticker {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 6px 10px;
-  margin: 26px 0 34px;
-  padding: 10px 0;
-  border-top: 1px solid var(--cf-hairline);
+@media (max-width: 560px) {
+  .masthead { padding: 36px 20px 30px; }
+  .masthead-tag { display: none; }
+}
+
+/* Ticker — faixa animada de verdade, nao so um cursor piscando */
+.ticker-wrap {
+  overflow: hidden;
+  background: var(--cf-papel);
   border-bottom: 1px solid var(--cf-hairline);
+  padding: 10px 0;
+}
+
+.ticker-track {
+  display: flex;
+  width: max-content;
+  gap: 14px;
+  white-space: nowrap;
   font-family: var(--cf-font-mono);
   font-size: 10px;
   letter-spacing: 0.18em;
   color: var(--cf-grafite);
+  animation: mover 24s linear infinite;
 }
 
-@media (max-width: 480px) {
-  .ticker { font-size: 9px; letter-spacing: 0.12em; }
-}
+.ticker-track .ponto { color: var(--cf-roxo-fume); margin: 0 4px; }
 
-.ticker .ponto { color: var(--cf-roxo-fume); }
-
-.ticker .cursor {
-  color: var(--cf-roxo-profundo);
-  animation: pisca 1.1s step-end infinite;
+@media (prefers-reduced-motion: reduce) {
+  .ticker-track { animation: none; }
 }
 
 .hero-grid {
@@ -157,29 +168,61 @@ header.topo .tag {
 .pilar {
   padding: 16px 0;
   border-top: 1px solid var(--cf-hairline);
+  opacity: 0.4;
+  cursor: pointer;
+  transition: opacity 0.4s ease;
 }
 
 .pilar:first-of-type { border-top: none; padding-top: 0; }
+
+.pilar.ativo { opacity: 1; }
+
+.pilar-cabecalho {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 6px;
+}
 
 .pilar-numero {
   font-family: var(--cf-font-mono);
   font-size: 10px;
   color: var(--cf-roxo-fume);
   letter-spacing: 0.14em;
-  margin-bottom: 6px;
 }
 
 .pilar-nome {
   font-family: var(--cf-font-display);
   font-weight: 600;
   font-size: 17px;
-  margin-bottom: 6px;
 }
 
 .pilar-desc {
   font-size: 12.5px;
   line-height: 1.6;
   color: var(--cf-grafite);
+  margin-bottom: 10px;
+}
+
+.pilar-barra {
+  height: 2px;
+  background: var(--cf-hairline);
+  overflow: hidden;
+}
+
+.pilar-progresso {
+  height: 100%;
+  width: 0%;
+  background: var(--cf-roxo-profundo);
+}
+
+.pilar.ativo .pilar-progresso {
+  animation: preencher 4.5s linear;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pilar { opacity: 1; }
+  .pilar.ativo .pilar-progresso { animation: none; width: 100%; }
 }
 
 h1 {

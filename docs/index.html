@@ -13,28 +13,33 @@
   <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 </head>
 <body>
-  <div class="faixa-eixo" aria-hidden="true"></div>
+  <header class="masthead">
+    <div class="masthead-linha">
+      <img class="masthead-logo" src="assets/logo/mark-light-bold.svg" alt="CF Tech">
+      <div class="masthead-lockup">
+        <div class="masthead-wordmark">CF&nbsp;<span class="roxo">TECH</span></div>
+        <div class="masthead-tagline">CEARÁ FINANCE · FRONT OFFICE DE TECNOLOGIA</div>
+      </div>
+    </div>
+    <span class="masthead-tag">FINANÇAS HUB</span>
+  </header>
+
+  <div class="ticker-wrap" aria-hidden="true">
+    <div class="ticker-track">
+      <span>SEM CADASTRO</span><span class="ponto">·</span>
+      <span>SEM ARMAZENAMENTO</span><span class="ponto">·</span>
+      <span>DADOS DIRETO DA CVM</span><span class="ponto">·</span>
+      <span>ESCALA ORIGINAL, SEM ABREVIAÇÃO</span><span class="ponto">·</span>
+      <span>SEM CADASTRO</span><span class="ponto">·</span>
+      <span>SEM ARMAZENAMENTO</span><span class="ponto">·</span>
+      <span>DADOS DIRETO DA CVM</span><span class="ponto">·</span>
+      <span>ESCALA ORIGINAL, SEM ABREVIAÇÃO</span><span class="ponto">·</span>
+    </div>
+  </div>
+
   <img class="marca-agua" src="assets/logo/mark-mono-ink.svg" alt="" aria-hidden="true">
 
   <div class="container">
-    <header class="topo">
-      <img class="logo-grande" src="assets/logo/mark-ink.svg" alt="CF Tech">
-      <div class="lockup">
-        <div class="wordmark">CF&nbsp;<span class="roxo">TECH</span></div>
-        <div class="tagline">CEARÁ FINANCE</div>
-      </div>
-      <span class="tag">FINANÇAS HUB</span>
-    </header>
-
-    <div class="ticker" aria-hidden="true">
-      <span>SEM CADASTRO</span>
-      <span class="ponto">·</span>
-      <span>SEM ARMAZENAMENTO</span>
-      <span class="ponto">·</span>
-      <span>DADOS DIRETO DA CVM</span>
-      <span class="cursor">_</span>
-    </div>
-
     <div class="hero-grid">
       <div class="hero-texto">
         <h1>Demonstrações financeiras,<br>direto da CVM.</h1>
@@ -95,22 +100,31 @@
         </div>
       </div>
 
-      <aside class="hero-pilares">
+      <aside class="hero-pilares" id="hero-pilares">
         <div class="rotulo-secao">OS TRÊS PILARES</div>
-        <div class="pilar">
-          <div class="pilar-numero">01</div>
-          <div class="pilar-nome">Didática</div>
+        <div class="pilar" data-pilar="0">
+          <div class="pilar-cabecalho">
+            <div class="pilar-numero">01</div>
+            <div class="pilar-nome">Didática</div>
+          </div>
           <div class="pilar-desc">A construção fica visível — eixos e raciocínio aparecem, em vez de ficarem escondidos atrás do acabamento.</div>
+          <div class="pilar-barra"><div class="pilar-progresso"></div></div>
         </div>
-        <div class="pilar">
-          <div class="pilar-numero">02</div>
-          <div class="pilar-nome">Criatividade</div>
+        <div class="pilar" data-pilar="1">
+          <div class="pilar-cabecalho">
+            <div class="pilar-numero">02</div>
+            <div class="pilar-nome">Criatividade</div>
+          </div>
           <div class="pilar-desc">Um desvio deliberado por peça — pegar o dado mais chato da CVM e entregar de um jeito que ninguém mais entrega.</div>
+          <div class="pilar-barra"><div class="pilar-progresso"></div></div>
         </div>
-        <div class="pilar">
-          <div class="pilar-numero">03</div>
-          <div class="pilar-nome">Tecnologia</div>
+        <div class="pilar" data-pilar="2">
+          <div class="pilar-cabecalho">
+            <div class="pilar-numero">03</div>
+            <div class="pilar-nome">Tecnologia</div>
+          </div>
           <div class="pilar-desc">Instrumento, não brilho — entra onde há dado, corte ou decisão, e em nenhum outro lugar.</div>
+          <div class="pilar-barra"><div class="pilar-progresso"></div></div>
         </div>
       </aside>
     </div>
