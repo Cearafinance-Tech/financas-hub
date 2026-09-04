@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Financas Hub — CF Tech</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@400;500;600;700&family=Space+Grotesk:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/site.css">
+  <link rel="icon" href="assets/logo/mark-ink-bold.svg">
+</head>
+<body>
+  <div class="container">
+    <header class="topo">
+      <img src="assets/logo/mark-ink.svg" alt="CF Tech">
+      <span class="wordmark">CF TECH</span>
+      <span class="tag">FINANÇAS HUB</span>
+    </header>
+
+    <h1>Demonstrações financeiras, direto da CVM.</h1>
+    <p class="subtitulo">
+      Busque uma empresa listada, escolha o ano e baixe as demonstrações
+      anuais (DFP) já organizadas em abas — sem cadastro, sem nada
+      armazenado. Cada consulta busca os dados na hora, direto da CVM.
+    </p>
+
+    <div class="busca">
+      <input
+        id="campo-busca"
+        type="text"
+        placeholder="Buscar por nome, CNPJ ou código CVM..."
+        autocomplete="off"
+      >
+      <div id="resultados" class="resultados" hidden></div>
+    </div>
+
+    <div id="painel-empresa" class="painel-empresa" hidden>
+      <div class="empresa-nome" id="empresa-nome"></div>
+      <div class="empresa-meta" id="empresa-meta"></div>
+
+      <div class="campo">
+        <label for="seletor-ano">ANO DE REFERÊNCIA (DFP)</label>
+        <select id="seletor-ano"></select>
+      </div>
+
+      <p class="aviso-dmpl">
+        Inclui Balanço Patrimonial (Ativo/Passivo), DRE, Fluxo de Caixa e
+        DVA, consolidado. A Demonstração das Mutações do Patrimônio
+        Líquido (DMPL) não está disponível nesta versão.
+      </p>
+
+      <button id="botao-gerar" class="gerar">BAIXAR EXCEL</button>
+      <div id="status-download" class="status-download"></div>
+    </div>
+
+    <footer>CF TECH · CEARÁ FINANCE · DADOS PÚBLICOS DA CVM</footer>
+  </div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>

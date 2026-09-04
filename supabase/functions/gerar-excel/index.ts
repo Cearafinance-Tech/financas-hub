@@ -101,7 +101,19 @@ function estilizarAba(ws: ExcelJS.Worksheet) {
   ws.showGridLines = false;
 }
 
+// CORS liberado (site publico, sem sessao de usuario) — necessario porque
+// o navegador chama a function direto de outro dominio (GitHub Pages).
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "GET, OPTIONS",
+};
+
 Deno.serve(async (req: Request) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: CORS_HEADERS });
+  }
+
   const params = new URL(req.url).searchParams;
   const cnpjOuCodigo = params.get("empresa") ?? "";
   const ano = params.get("ano") ?? String(new Date().getFullYear() - 1);
@@ -110,7 +122,7 @@ Deno.serve(async (req: Request) => {
   if (!cnpjAlvo) {
     return new Response(JSON.stringify({ erro: "informe o parametro 'empresa' (CNPJ ou codigo CVM)" }), {
       status: 400,
-      headers: { "Content-Type": "application/json" },
+      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
     });
   }
 
@@ -119,7 +131,7 @@ Deno.serve(async (req: Request) => {
   if (!resp.ok) {
     return new Response(JSON.stringify({ erro: `DFP ${ano} indisponivel: ${resp.status}` }), {
       status: 502,
-      headers: { "Content-Type": "application/json" },
+      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
     });
   }
   const buf = await resp.arrayBuffer();
@@ -170,7 +182,7 @@ Deno.serve(async (req: Request) => {
   if (!algumaAba) {
     return new Response(JSON.stringify({ erro: "nenhuma demonstracao encontrada para essa empresa/ano" }), {
       status: 404,
-      headers: { "Content-Type": "application/json" },
+      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
     });
   }
 
@@ -202,6 +214,7 @@ Deno.serve(async (req: Request) => {
 
   return new Response(xlsxBuffer, {
     headers: {
+      ...CORS_HEADERS,
       "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       "Content-Disposition": `attachment; filename="demonstracoes_${cnpjAlvo}_${ano}.xlsx"`,
     },

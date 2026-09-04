@@ -15,7 +15,19 @@ function soDigitos(texto: string): string {
   return texto.replace(/\D/g, "");
 }
 
+// CORS liberado (site publico, sem sessao de usuario) — necessario porque
+// o navegador chama a function direto de outro dominio (GitHub Pages).
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "GET, OPTIONS",
+};
+
 Deno.serve(async (req: Request) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: CORS_HEADERS });
+  }
+
   const params = new URL(req.url).searchParams;
   const consulta = (params.get("q") ?? "").trim();
   const limite = Math.min(Number(params.get("limite") ?? 10), 25);
@@ -23,7 +35,7 @@ Deno.serve(async (req: Request) => {
   if (consulta.length < 2) {
     return new Response(JSON.stringify({ erro: "informe ao menos 2 caracteres" }), {
       status: 400,
-      headers: { "Content-Type": "application/json" },
+      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
     });
   }
 
@@ -31,7 +43,7 @@ Deno.serve(async (req: Request) => {
   if (!resp.ok) {
     return new Response(JSON.stringify({ erro: `cadastro CVM indisponivel: ${resp.status}` }), {
       status: 502,
-      headers: { "Content-Type": "application/json" },
+      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
     });
   }
   const buf = await resp.arrayBuffer();
@@ -84,6 +96,6 @@ Deno.serve(async (req: Request) => {
   }
 
   return new Response(JSON.stringify({ resultados }), {
-    headers: { "Content-Type": "application/json" },
+    headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
   });
 });
