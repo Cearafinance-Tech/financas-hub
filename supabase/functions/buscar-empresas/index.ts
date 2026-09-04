@@ -58,6 +58,9 @@ Deno.serve(async (req: Request) => {
     denomComerc: cabecalho.indexOf("DENOM_COMERC"),
     cdCvm: cabecalho.indexOf("CD_CVM"),
     sit: cabecalho.indexOf("SIT"),
+    dtReg: cabecalho.indexOf("DT_REG"),
+    dtCancel: cabecalho.indexOf("DT_CANCEL"),
+    dtIniSit: cabecalho.indexOf("DT_INI_SIT"),
   };
 
   const consultaDigitos = soDigitos(consulta);
@@ -65,7 +68,14 @@ Deno.serve(async (req: Request) => {
   const consultaNorm = normalizar(consulta);
 
   const vistos = new Set<string>();
-  const resultados: Array<{ cd_cvm: number; cnpj: string; nome: string; situacao: string }> = [];
+  const resultados: Array<{
+    cd_cvm: number;
+    cnpj: string;
+    nome: string;
+    situacao: string;
+    data_registro: string | null;
+    data_fim: string | null;
+  }> = [];
 
   for (let i = 1; i < linhas.length && resultados.length < limite; i++) {
     const linha = linhas[i];
@@ -86,11 +96,18 @@ Deno.serve(async (req: Request) => {
 
     if (bate) {
       vistos.add(cdCvm);
+      const situacao = cols[idx.sit] || "";
+      // pra empresa fora de ATIVO, usamos a data em que o status mudou
+      // (cancelamento, se houver, senao a data de inicio da situacao atual)
+      // como limite superior de anos com demonstracao disponivel.
+      const dataFim = situacao.toUpperCase() !== "ATIVO" ? (cols[idx.dtCancel] || cols[idx.dtIniSit] || null) : null;
       resultados.push({
         cd_cvm: Number(cdCvm),
         cnpj,
         nome,
-        situacao: cols[idx.sit] || "",
+        situacao,
+        data_registro: cols[idx.dtReg] || null,
+        data_fim: dataFim,
       });
     }
   }

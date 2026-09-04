@@ -25,6 +25,7 @@ const metaEmpresaEl = document.getElementById("empresa-meta");
 const seletorAnoInicial = document.getElementById("seletor-ano-inicial");
 const seletorAnoFinal = document.getElementById("seletor-ano-final");
 const seletorEscala = document.getElementById("seletor-escala");
+const avisoPeriodo = document.getElementById("aviso-periodo");
 const botaoGerar = document.getElementById("botao-gerar");
 const rotuloBotao = botaoGerar.querySelector(".rotulo");
 const statusDownload = document.getElementById("status-download");
@@ -36,9 +37,44 @@ let debounceTimer = null;
 // (padrao contabil atual); 2009 pra tras nao existe nesse layout.
 const PRIMEIRO_ANO_DISPONIVEL = 2010;
 
-function preencherAnos() {
+// Restringe o periodo selecionavel ao que a empresa realmente pode ter
+// publicado: nao antes do ano de registro na CVM (nem antes de 2010, teto
+// da plataforma) e, se a empresa nao esta mais ATIVA, nao depois do ano em
+// que o registro foi cancelado/mudou de situacao — depois disso ela deixa
+// de ser obrigada a publicar.
+function calcularPeriodoDisponivel(empresa) {
   const anoAtual = new Date().getFullYear();
-  for (let ano = anoAtual - 1; ano >= PRIMEIRO_ANO_DISPONIVEL; ano--) {
+  let anoMinimo = PRIMEIRO_ANO_DISPONIVEL;
+  if (empresa.data_registro) {
+    const anoRegistro = Number(empresa.data_registro.slice(0, 4));
+    if (Number.isFinite(anoRegistro)) anoMinimo = Math.max(anoMinimo, anoRegistro);
+  }
+
+  let anoMaximo = anoAtual - 1;
+  if (empresa.data_fim) {
+    const anoFim = Number(empresa.data_fim.slice(0, 4));
+    if (Number.isFinite(anoFim)) anoMaximo = Math.min(anoMaximo, anoFim);
+  }
+
+  return { anoMinimo, anoMaximo };
+}
+
+function atualizarAnosDisponiveis(empresa) {
+  const { anoMinimo, anoMaximo } = calcularPeriodoDisponivel(empresa);
+  seletorAnoInicial.innerHTML = "";
+  seletorAnoFinal.innerHTML = "";
+
+  if (anoMaximo < anoMinimo) {
+    // nenhum ano dentro do alcance da plataforma (ex: cancelada antes de 2010)
+    seletorAnoInicial.disabled = true;
+    seletorAnoFinal.disabled = true;
+    botaoGerar.disabled = true;
+    avisoPeriodo.className = "aviso-periodo sem-dados";
+    avisoPeriodo.textContent = `Sem demonstrações disponíveis: essa empresa não tem período dentro do alcance da CVM em formato estruturado (a partir de ${PRIMEIRO_ANO_DISPONIVEL}).`;
+    return;
+  }
+
+  for (let ano = anoMaximo; ano >= anoMinimo; ano--) {
     for (const sel of [seletorAnoInicial, seletorAnoFinal]) {
       const opt = document.createElement("option");
       opt.value = String(ano);
@@ -46,8 +82,17 @@ function preencherAnos() {
       sel.appendChild(opt);
     }
   }
-  seletorAnoFinal.value = String(anoAtual - 1);
-  seletorAnoInicial.value = String(anoAtual - 1);
+  seletorAnoInicial.disabled = false;
+  seletorAnoFinal.disabled = false;
+  botaoGerar.disabled = false;
+  seletorAnoFinal.value = String(anoMaximo);
+  seletorAnoInicial.value = String(anoMaximo);
+
+  avisoPeriodo.className = "aviso-periodo";
+  avisoPeriodo.textContent =
+    anoMinimo === anoMaximo
+      ? `Período disponível para essa empresa: apenas ${anoMinimo}.`
+      : `Período disponível para essa empresa: ${anoMinimo}–${anoMaximo}.`;
 }
 
 // -------------------- Busca --------------------
@@ -91,6 +136,7 @@ function selecionarEmpresa(empresa) {
   painelEmpresa.hidden = false;
   statusDownload.textContent = "";
   statusDownload.className = "status-download";
+  atualizarAnosDisponiveis(empresa);
 }
 
 campoBusca.addEventListener("input", () => {
@@ -316,8 +362,6 @@ botaoGerar.addEventListener("click", async () => {
     rotuloBotao.textContent = "BAIXAR EXCEL";
   }
 });
-
-preencherAnos();
 
 // -------------------- Spotlight dos pilares (avanca sozinho) --------------------
 

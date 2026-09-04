@@ -399,6 +399,18 @@ h1 {
   outline: none;
 }
 
+.aviso-periodo {
+  font-family: var(--cf-font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.05em;
+  color: var(--cf-grafite);
+  margin: -10px 0 20px;
+}
+
+.aviso-periodo.sem-dados {
+  color: #B0483A;
+}
+
 .aviso-dmpl {
   font-size: 12px;
   line-height: 1.6;
