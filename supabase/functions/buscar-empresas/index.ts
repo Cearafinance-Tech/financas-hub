@@ -59,8 +59,6 @@ Deno.serve(async (req: Request) => {
     cdCvm: cabecalho.indexOf("CD_CVM"),
     sit: cabecalho.indexOf("SIT"),
     dtReg: cabecalho.indexOf("DT_REG"),
-    dtCancel: cabecalho.indexOf("DT_CANCEL"),
-    dtIniSit: cabecalho.indexOf("DT_INI_SIT"),
   };
 
   const consultaDigitos = soDigitos(consulta);
@@ -72,9 +70,7 @@ Deno.serve(async (req: Request) => {
     cd_cvm: number;
     cnpj: string;
     nome: string;
-    situacao: string;
     data_registro: string | null;
-    data_fim: string | null;
   }> = [];
 
   for (let i = 1; i < linhas.length && resultados.length < limite; i++) {
@@ -83,6 +79,10 @@ Deno.serve(async (req: Request) => {
     const cols = linha.split(";");
     const cdCvm = cols[idx.cdCvm];
     if (!cdCvm || vistos.has(cdCvm)) continue;
+
+    // so empresas ativas: uma cancelada/suspensa nao publica mais nada,
+    // entao nao faz sentido aparecer como opcao de busca.
+    if ((cols[idx.sit] || "").toUpperCase() !== "ATIVO") continue;
 
     const nome = cols[idx.denomComerc] || cols[idx.denomSocial] || "";
     const cnpj = cols[idx.cnpj] || "";
@@ -96,18 +96,11 @@ Deno.serve(async (req: Request) => {
 
     if (bate) {
       vistos.add(cdCvm);
-      const situacao = cols[idx.sit] || "";
-      // pra empresa fora de ATIVO, usamos a data em que o status mudou
-      // (cancelamento, se houver, senao a data de inicio da situacao atual)
-      // como limite superior de anos com demonstracao disponivel.
-      const dataFim = situacao.toUpperCase() !== "ATIVO" ? (cols[idx.dtCancel] || cols[idx.dtIniSit] || null) : null;
       resultados.push({
         cd_cvm: Number(cdCvm),
         cnpj,
         nome,
-        situacao,
         data_registro: cols[idx.dtReg] || null,
-        data_fim: dataFim,
       });
     }
   }

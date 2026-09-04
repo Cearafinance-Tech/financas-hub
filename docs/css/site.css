@@ -312,10 +312,6 @@ h1 {
   white-space: nowrap;
 }
 
-.resultado-item .meta.cancelada {
-  color: #B0483A;
-}
-
 .estado-mensagem {
   padding: 16px 18px;
   font-family: var(--cf-font-mono);

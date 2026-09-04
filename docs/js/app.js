@@ -38,10 +38,10 @@ let debounceTimer = null;
 const PRIMEIRO_ANO_DISPONIVEL = 2010;
 
 // Restringe o periodo selecionavel ao que a empresa realmente pode ter
-// publicado: nao antes do ano de registro na CVM (nem antes de 2010, teto
-// da plataforma) e, se a empresa nao esta mais ATIVA, nao depois do ano em
-// que o registro foi cancelado/mudou de situacao — depois disso ela deixa
-// de ser obrigada a publicar.
+// publicado: nao antes do ano de registro na CVM, nem antes de 2010 (teto
+// da plataforma). So mostramos empresas ATIVAS na busca, entao o unico
+// jeito do periodo ficar vazio e uma empresa registrada no ano corrente,
+// ainda sem nenhuma demonstracao publicada.
 function calcularPeriodoDisponivel(empresa) {
   const anoAtual = new Date().getFullYear();
   let anoMinimo = PRIMEIRO_ANO_DISPONIVEL;
@@ -50,12 +50,7 @@ function calcularPeriodoDisponivel(empresa) {
     if (Number.isFinite(anoRegistro)) anoMinimo = Math.max(anoMinimo, anoRegistro);
   }
 
-  let anoMaximo = anoAtual - 1;
-  if (empresa.data_fim) {
-    const anoFim = Number(empresa.data_fim.slice(0, 4));
-    if (Number.isFinite(anoFim)) anoMaximo = Math.min(anoMaximo, anoFim);
-  }
-
+  const anoMaximo = anoAtual - 1;
   return { anoMinimo, anoMaximo };
 }
 
@@ -65,12 +60,12 @@ function atualizarAnosDisponiveis(empresa) {
   seletorAnoFinal.innerHTML = "";
 
   if (anoMaximo < anoMinimo) {
-    // nenhum ano dentro do alcance da plataforma (ex: cancelada antes de 2010)
+    // registrada no ano corrente, ainda sem demonstracao anual publicada
     seletorAnoInicial.disabled = true;
     seletorAnoFinal.disabled = true;
     botaoGerar.disabled = true;
     avisoPeriodo.className = "aviso-periodo sem-dados";
-    avisoPeriodo.textContent = `Sem demonstrações disponíveis: essa empresa não tem período dentro do alcance da CVM em formato estruturado (a partir de ${PRIMEIRO_ANO_DISPONIVEL}).`;
+    avisoPeriodo.textContent = "Sem demonstrações disponíveis ainda: essa empresa foi registrada recentemente e não publicou nenhuma DFP.";
     return;
   }
 
@@ -116,10 +111,9 @@ function renderResultados(resultados) {
   for (const empresa of resultados) {
     const item = document.createElement("div");
     item.className = "resultado-item";
-    const cancelada = empresa.situacao && empresa.situacao.toUpperCase() !== "ATIVO";
     item.innerHTML = `
       <span class="nome">${empresa.nome}</span>
-      <span class="meta ${cancelada ? "cancelada" : ""}">${empresa.cnpj} · ${empresa.situacao || ""}</span>
+      <span class="meta">${empresa.cnpj}</span>
     `;
     item.addEventListener("click", () => selecionarEmpresa(empresa));
     listaResultados.appendChild(item);
@@ -132,7 +126,7 @@ function selecionarEmpresa(empresa) {
   campoBusca.value = empresa.nome;
   listaResultados.hidden = true;
   nomeEmpresaEl.textContent = empresa.nome;
-  metaEmpresaEl.textContent = `CNPJ ${empresa.cnpj} · CÓDIGO CVM ${empresa.cd_cvm} · ${empresa.situacao || ""}`;
+  metaEmpresaEl.textContent = `CNPJ ${empresa.cnpj} · CÓDIGO CVM ${empresa.cd_cvm}`;
   painelEmpresa.hidden = false;
   statusDownload.textContent = "";
   statusDownload.className = "status-download";
