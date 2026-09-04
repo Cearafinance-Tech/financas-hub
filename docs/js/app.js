@@ -71,6 +71,12 @@ const ROTULO_TIPO = { DFP: "DFP (anual)", ITR: "ITR (trimestral)" };
 // tipo escolhido. So mostramos empresas ATIVAS na busca, entao o unico
 // jeito do periodo ficar vazio e uma empresa registrada no ano corrente,
 // ainda sem nenhuma demonstracao publicada.
+//
+// anoMaximo e o ano corrente, nao o anterior: o ITR publica trimestres ao
+// longo do proprio ano (ex: 2T do ano corrente sai em ~agosto), entao travar
+// em "ano atual - 1" escondia dados que ja existiam na CVM. Se o ano
+// escolhido nao tiver nada publicado ainda pra essa empresa/demonstrativo,
+// a extracao so ignora aquele ano — nao precisa adivinhar aqui.
 function calcularPeriodoDisponivel(empresa, tipo) {
   const anoAtual = new Date().getFullYear();
   let anoMinimo = PRIMEIRO_ANO_POR_TIPO[tipo];
@@ -79,8 +85,7 @@ function calcularPeriodoDisponivel(empresa, tipo) {
     if (Number.isFinite(anoRegistro)) anoMinimo = Math.max(anoMinimo, anoRegistro);
   }
 
-  const anoMaximo = anoAtual - 1;
-  return { anoMinimo, anoMaximo };
+  return { anoMinimo, anoMaximo: anoAtual };
 }
 
 function atualizarAvisoDmpl(tipo) {
@@ -222,6 +227,33 @@ async function extrairDemonstrativo(cnpj, tipo, ano, demonstrativo) {
   return corpo;
 }
 
+// Transforma um periodo (DT_INI_EXERC/DT_FIM_EXERC) num rotulo legivel em
+// vez da data crua. O ITR traz DOIS tipos de periodo pro mesmo trimestre —
+// acumulado (ex: jan-jun) e isolado (ex: abr-jun) — que terminam na mesma
+// data mas nao podem ser confundidos com o mesmo rotulo, senao um
+// sobrescreve o outro silenciosamente na tabela. So reconhece fronteiras de
+// trimestre/ano civis (como a CVM sempre reporta); qualquer coisa fora
+// desse padrao cai no fallback com a data crua.
+function rotularPeriodo(dtIni, dtFim) {
+  if (!dtIni || !dtFim) return dtFim || dtIni || "";
+  const [anoIni, mesIni, diaIni] = dtIni.split("-").map(Number);
+  const [anoFim, mesFim, diaFim] = dtFim.split("-").map(Number);
+  const yy = String(anoFim).slice(-2);
+  const fimStr = `${mesFim}-${diaFim}`;
+
+  if (anoFim === anoIni && mesIni === 1 && diaIni === 1) {
+    if (fimStr === "3-31") return `1T${yy}`;
+    if (fimStr === "6-30") return `Acum. 1S${yy}`;
+    if (fimStr === "9-30") return `Acum. 9M${yy}`;
+    if (fimStr === "12-31") return String(anoFim);
+  }
+  if (anoFim === anoIni && mesIni === 4 && diaIni === 1 && fimStr === "6-30") return `2T${yy}`;
+  if (anoFim === anoIni && mesIni === 7 && diaIni === 1 && fimStr === "9-30") return `3T${yy}`;
+  if (anoFim === anoIni && mesIni === 10 && diaIni === 1 && fimStr === "12-31") return `4T${yy}`;
+
+  return `${dtIni} a ${dtFim}`;
+}
+
 // Junta as contas de varios anos num unico mapa conta -> coluna -> valor.
 // O mesmo periodo aparecendo em anos adjacentes (ex: 2023 como ULTIMO no
 // zip de 2023 e como PENULTIMO no zip de 2024) cai na mesma coluna e so
@@ -231,22 +263,28 @@ async function extrairDemonstrativo(cnpj, tipo, ano, demonstrativo) {
 // DT_REFER e a data do proprio arquivo/filing e fica igual pra ULTIMO e
 // PENULTIMO dentro do mesmo zip — usa-la faria as duas linhas colidirem
 // na mesma coluna e uma sobrescrever a outra silenciosamente.
+//
+// A ordenacao das colunas usa a data (dt_fim + dt_ini), nao o rotulo —
+// rotulos como "1T24"/"Acum. 1S24"/"2024" nao ficam em ordem cronologica
+// se ordenados como texto.
 function pivotar(linhasPorAno, modo, divisor) {
-  const colunasSet = new Set();
   const tabela = new Map();
   const nomes = new Map();
+  const ordenacaoPorColuna = new Map();
 
   for (const linhas of linhasPorAno) {
     for (const l of linhas) {
-      const coluna = modo === "ponto" ? l.dt_fim_exerc : `${l.dt_ini_exerc} a ${l.dt_fim_exerc}`;
-      colunasSet.add(coluna);
+      const coluna = modo === "ponto" ? l.dt_fim_exerc : rotularPeriodo(l.dt_ini_exerc, l.dt_fim_exerc);
+      if (!ordenacaoPorColuna.has(coluna)) ordenacaoPorColuna.set(coluna, `${l.dt_fim_exerc}_${l.dt_ini_exerc ?? ""}`);
       nomes.set(l.cd_conta, l.ds_conta);
       if (!tabela.has(l.cd_conta)) tabela.set(l.cd_conta, new Map());
       tabela.get(l.cd_conta).set(coluna, l.valor / divisor);
     }
   }
 
-  const colunas = Array.from(colunasSet).sort();
+  const colunas = Array.from(ordenacaoPorColuna.keys()).sort((a, b) =>
+    ordenacaoPorColuna.get(a) < ordenacaoPorColuna.get(b) ? -1 : 1,
+  );
   return { colunas, tabela, nomes };
 }
 
@@ -285,7 +323,7 @@ function agruparPorAba(tipo) {
   return porAba;
 }
 
-async function montarWorkbook(tipo, anoFinal, contasPorChaveEAno, escalaDivisor) {
+async function montarWorkbook(tipo, anoInicial, anoFinal, contasPorChaveEAno, escalaDivisor) {
   const workbook = new ExcelJS.Workbook();
   const casasDecimais = escalaDivisor === 1 || escalaDivisor === 1000 ? 0 : 2;
   const rotuloEscala = ROTULO_ESCALA[String(escalaDivisor)];
@@ -299,10 +337,17 @@ async function montarWorkbook(tipo, anoFinal, contasPorChaveEAno, escalaDivisor)
       if (linhas.length === 0) continue;
       ({ colunas, tabela, nomes } = pivotarDmpl(linhas, escalaDivisor));
     } else {
+      // Cada zip anual traz o exercicio comparativo anterior junto (ex:
+      // BPA/BPP sempre tem ULTIMO + PENULTIMO). Sem esse filtro, escolher
+      // "De 2023" ainda trazia uma coluna de 2022 encostada — a comparativa
+      // do proprio arquivo de 2023. So mantem colunas cujo fim de exercicio
+      // caia dentro do periodo pedido.
       const linhasPorAno = [];
       for (const [chaveAno, linhas] of contasPorChaveEAno) {
         const [chave] = chaveAno.split("|");
-        if (def.chaves.includes(chave) && linhas.length > 0) linhasPorAno.push(linhas);
+        if (!def.chaves.includes(chave) || linhas.length === 0) continue;
+        const dentroDoPeriodo = linhas.filter((l) => Number((l.dt_fim_exerc || "").slice(0, 4)) >= anoInicial);
+        if (dentroDoPeriodo.length > 0) linhasPorAno.push(dentroDoPeriodo);
       }
       if (linhasPorAno.length === 0) continue;
       ({ colunas, tabela, nomes } = pivotar(linhasPorAno, def.modo, escalaDivisor));
@@ -410,7 +455,7 @@ botaoGerar.addEventListener("click", async () => {
     }
 
     rotuloBotao.textContent = "MONTANDO PLANILHA...";
-    const { workbook, algumaAba } = await montarWorkbook(tipo, anoFinal, contasPorChaveEAno, escalaDivisor);
+    const { workbook, algumaAba } = await montarWorkbook(tipo, anoInicial, anoFinal, contasPorChaveEAno, escalaDivisor);
     if (!algumaAba) throw new Error("nenhuma demonstração encontrada nesse período");
 
     const wsResumo = workbook.addWorksheet("Resumo");
