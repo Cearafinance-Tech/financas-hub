@@ -22,10 +22,12 @@ const listaResultados = document.getElementById("resultados");
 const painelEmpresa = document.getElementById("painel-empresa");
 const nomeEmpresaEl = document.getElementById("empresa-nome");
 const metaEmpresaEl = document.getElementById("empresa-meta");
+const seletorTipo = document.getElementById("seletor-tipo");
 const seletorAnoInicial = document.getElementById("seletor-ano-inicial");
 const seletorAnoFinal = document.getElementById("seletor-ano-final");
 const seletorEscala = document.getElementById("seletor-escala");
 const avisoPeriodo = document.getElementById("aviso-periodo");
+const avisoDmpl = document.getElementById("aviso-dmpl");
 const botaoGerar = document.getElementById("botao-gerar");
 const rotuloBotao = botaoGerar.querySelector(".rotulo");
 const statusDownload = document.getElementById("status-download");
@@ -33,18 +35,45 @@ const statusDownload = document.getElementById("status-download");
 let empresaSelecionada = null;
 let debounceTimer = null;
 
-// A CVM so disponibiliza esse formato estruturado de DFP a partir de 2010
-// (padrao contabil atual); 2009 pra tras nao existe nesse layout.
-const PRIMEIRO_ANO_DISPONIVEL = 2010;
+// A CVM so disponibiliza esse formato estruturado a partir de 2010 pro DFP
+// e 2011 pro ITR (padrao contabil atual) — anos anteriores nao existem
+// nesse layout, confirmado por tentativa direta (404).
+const PRIMEIRO_ANO_POR_TIPO = { DFP: 2010, ITR: 2011 };
+
+// Nome do demonstrativo (usado tambem como parametro da Edge Function) ->
+// { aba no Excel, modo de pivo }. DMPL so existe pro DFP: o arquivo do ITR
+// e um outlier de tamanho (~170MB descomprimido) que estoura o limite de
+// recursos da Edge Function mesmo em streaming.
+const DEMONSTRATIVOS_POR_TIPO = {
+  DFP: {
+    BPA: { aba: "BPA", modo: "ponto" },
+    BPP: { aba: "BPP", modo: "ponto" },
+    DRE: { aba: "DRE", modo: "periodo" },
+    DFC_MD: { aba: "DFC", modo: "periodo" },
+    DFC_MI: { aba: "DFC", modo: "periodo" },
+    DVA: { aba: "DVA", modo: "periodo" },
+    DMPL: { aba: "DMPL", modo: "dmpl" },
+  },
+  ITR: {
+    BPA: { aba: "BPA", modo: "ponto" },
+    BPP: { aba: "BPP", modo: "ponto" },
+    DRE: { aba: "DRE", modo: "periodo" },
+    DFC_MD: { aba: "DFC", modo: "periodo" },
+    DFC_MI: { aba: "DFC", modo: "periodo" },
+    DVA: { aba: "DVA", modo: "periodo" },
+  },
+};
+
+const ROTULO_TIPO = { DFP: "DFP (anual)", ITR: "ITR (trimestral)" };
 
 // Restringe o periodo selecionavel ao que a empresa realmente pode ter
-// publicado: nao antes do ano de registro na CVM, nem antes de 2010 (teto
-// da plataforma). So mostramos empresas ATIVAS na busca, entao o unico
+// publicado: nao antes do ano de registro na CVM, nem antes do piso do
+// tipo escolhido. So mostramos empresas ATIVAS na busca, entao o unico
 // jeito do periodo ficar vazio e uma empresa registrada no ano corrente,
 // ainda sem nenhuma demonstracao publicada.
-function calcularPeriodoDisponivel(empresa) {
+function calcularPeriodoDisponivel(empresa, tipo) {
   const anoAtual = new Date().getFullYear();
-  let anoMinimo = PRIMEIRO_ANO_DISPONIVEL;
+  let anoMinimo = PRIMEIRO_ANO_POR_TIPO[tipo];
   if (empresa.data_registro) {
     const anoRegistro = Number(empresa.data_registro.slice(0, 4));
     if (Number.isFinite(anoRegistro)) anoMinimo = Math.max(anoMinimo, anoRegistro);
@@ -54,18 +83,29 @@ function calcularPeriodoDisponivel(empresa) {
   return { anoMinimo, anoMaximo };
 }
 
+function atualizarAvisoDmpl(tipo) {
+  avisoDmpl.textContent =
+    tipo === "DFP"
+      ? "Inclui Balanço Patrimonial (Ativo/Passivo), DRE, Fluxo de Caixa, DVA e Mutações do PL, consolidado. Os valores são extraídos sempre no total original — a escala acima só muda como eles aparecem na planilha."
+      : "Inclui Balanço Patrimonial (Ativo/Passivo), DRE, Fluxo de Caixa e DVA, consolidado. A Demonstração das Mutações do PL (DMPL) não está disponível para o trimestral — é um arquivo grande demais pra processar sob demanda. Os valores são extraídos sempre no total original — a escala acima só muda como eles aparecem na planilha.";
+}
+
 function atualizarAnosDisponiveis(empresa) {
-  const { anoMinimo, anoMaximo } = calcularPeriodoDisponivel(empresa);
+  const tipo = seletorTipo.value;
+  atualizarAvisoDmpl(tipo);
+
+  const { anoMinimo, anoMaximo } = calcularPeriodoDisponivel(empresa, tipo);
+  const anoInicialAnterior = seletorAnoInicial.value;
+  const anoFinalAnterior = seletorAnoFinal.value;
   seletorAnoInicial.innerHTML = "";
   seletorAnoFinal.innerHTML = "";
 
   if (anoMaximo < anoMinimo) {
-    // registrada no ano corrente, ainda sem demonstracao anual publicada
     seletorAnoInicial.disabled = true;
     seletorAnoFinal.disabled = true;
     botaoGerar.disabled = true;
     avisoPeriodo.className = "aviso-periodo sem-dados";
-    avisoPeriodo.textContent = "Sem demonstrações disponíveis ainda: essa empresa foi registrada recentemente e não publicou nenhuma DFP.";
+    avisoPeriodo.textContent = `Sem demonstrações ${ROTULO_TIPO[tipo]} disponíveis ainda para essa empresa.`;
     return;
   }
 
@@ -80,8 +120,11 @@ function atualizarAnosDisponiveis(empresa) {
   seletorAnoInicial.disabled = false;
   seletorAnoFinal.disabled = false;
   botaoGerar.disabled = false;
-  seletorAnoFinal.value = String(anoMaximo);
-  seletorAnoInicial.value = String(anoMaximo);
+  // mantem a selecao anterior se ainda for valida (troca de tipo), senao usa o mais recente
+  const manterInicial = anoInicialAnterior && Number(anoInicialAnterior) >= anoMinimo && Number(anoInicialAnterior) <= anoMaximo;
+  const manterFinal = anoFinalAnterior && Number(anoFinalAnterior) >= anoMinimo && Number(anoFinalAnterior) <= anoMaximo;
+  seletorAnoFinal.value = manterFinal ? anoFinalAnterior : String(anoMaximo);
+  seletorAnoInicial.value = manterInicial ? anoInicialAnterior : String(anoMaximo);
 
   avisoPeriodo.className = "aviso-periodo";
   avisoPeriodo.textContent =
@@ -89,6 +132,10 @@ function atualizarAnosDisponiveis(empresa) {
       ? `Período disponível para essa empresa: apenas ${anoMinimo}.`
       : `Período disponível para essa empresa: ${anoMinimo}–${anoMaximo}.`;
 }
+
+seletorTipo.addEventListener("change", () => {
+  if (empresaSelecionada) atualizarAnosDisponiveis(empresaSelecionada);
+});
 
 // -------------------- Busca --------------------
 
@@ -163,11 +210,15 @@ document.addEventListener("click", (ev) => {
 
 // -------------------- Extracao + montagem do Excel (no navegador) --------------------
 
-async function extrairAno(cnpj, ano) {
-  const url = `${SUPABASE_URL}/functions/v1/extrair-dados?empresa=${encodeURIComponent(cnpj)}&ano=${ano}`;
+// 1 chamada = 1 demonstrativo de 1 ano. Cada arquivo sozinho cabe folgado
+// no limite de CPU da Edge Function, mas pedir varios de uma vez na mesma
+// chamada estoura (confirmado). O navegador dispara todas em paralelo —
+// anos x demonstrativos — e cada uma fica isolada com seu proprio orcamento.
+async function extrairDemonstrativo(cnpj, tipo, ano, demonstrativo) {
+  const url = `${SUPABASE_URL}/functions/v1/extrair-dados?empresa=${encodeURIComponent(cnpj)}&ano=${ano}&tipo=${tipo}&demonstrativo=${demonstrativo}`;
   const resp = await fetch(url, { headers: { Authorization: `Bearer ${SUPABASE_ANON_KEY}` } });
   const corpo = await resp.json();
-  if (!resp.ok) throw new Error(corpo.erro || `falha ao extrair ${ano} (${resp.status})`);
+  if (!resp.ok) throw new Error(corpo.erro || `falha ao extrair ${demonstrativo} ${ano} (${resp.status})`);
   return corpo;
 }
 
@@ -199,32 +250,65 @@ function pivotar(linhasPorAno, modo, divisor) {
   return { colunas, tabela, nomes };
 }
 
-async function montarWorkbook(anos, respostasPorAno, escalaDivisor) {
-  const workbook = new ExcelJS.Workbook();
-  const definicoes = [
-    { aba: "BPA", chaves: ["BPA"], modo: "ponto" },
-    { aba: "BPP", chaves: ["BPP"], modo: "ponto" },
-    { aba: "DRE", chaves: ["DRE"], modo: "periodo" },
-    { aba: "DFC", chaves: ["DFC_MD", "DFC_MI"], modo: "periodo" },
-    { aba: "DVA", chaves: ["DVA"], modo: "periodo" },
-  ];
+// DMPL e uma matriz (movimento x coluna do patrimonio), nao uma serie
+// temporal — so mostra o exercicio mais recente (ULTIMO), igual ao
+// script Python original. Linhas = tipo de movimento (CD_CONTA/DS_CONTA),
+// colunas = componente do PL (COLUNA_DF, ex: "Capital Social").
+function pivotarDmpl(linhas, divisor) {
+  const ultimo = linhas.filter((l) => l.ordem_exerc.toUpperCase().replace("Ú", "U") === "ULTIMO");
+  const base = ultimo.length > 0 ? ultimo : linhas;
 
+  const colunasSet = new Set();
+  const tabela = new Map();
+  const nomes = new Map();
+  for (const l of base) {
+    const coluna = l.coluna_df ?? "";
+    colunasSet.add(coluna);
+    nomes.set(l.cd_conta, l.ds_conta);
+    if (!tabela.has(l.cd_conta)) tabela.set(l.cd_conta, new Map());
+    tabela.get(l.cd_conta).set(coluna, l.valor / divisor);
+  }
+
+  const colunas = Array.from(colunasSet).sort();
+  return { colunas, tabela, nomes };
+}
+
+// Agrupa as chaves de demonstrativo (BPA, BPP, DRE, DFC_MD, DFC_MI, DVA,
+// DMPL) pela aba onde caem no Excel — DFC_MD e DFC_MI viram uma unica aba
+// "DFC" (a empresa reporta um metodo ou outro, raramente os dois).
+function agruparPorAba(tipo) {
+  const porAba = new Map();
+  for (const [chave, info] of Object.entries(DEMONSTRATIVOS_POR_TIPO[tipo])) {
+    if (!porAba.has(info.aba)) porAba.set(info.aba, { modo: info.modo, chaves: [] });
+    porAba.get(info.aba).chaves.push(chave);
+  }
+  return porAba;
+}
+
+async function montarWorkbook(tipo, anoFinal, contasPorChaveEAno, escalaDivisor) {
+  const workbook = new ExcelJS.Workbook();
   const casasDecimais = escalaDivisor === 1 || escalaDivisor === 1000 ? 0 : 2;
   const rotuloEscala = ROTULO_ESCALA[String(escalaDivisor)];
 
-  for (const def of definicoes) {
-    const linhasPorAno = [];
-    for (const ano of anos) {
-      const resp = respostasPorAno.get(ano);
-      if (!resp) continue;
-      for (const chave of def.chaves) {
-        if (resp.demonstrativos[chave]) linhasPorAno.push(resp.demonstrativos[chave]);
-      }
-    }
-    if (linhasPorAno.length === 0) continue;
+  for (const [aba, def] of agruparPorAba(tipo)) {
+    let colunas, tabela, nomes;
 
-    const { colunas, tabela, nomes } = pivotar(linhasPorAno, def.modo, escalaDivisor);
-    const ws = workbook.addWorksheet(def.aba);
+    if (def.modo === "dmpl") {
+      // so o ano final, matriz nao acumula ao longo de varios anos
+      const linhas = def.chaves.flatMap((chave) => contasPorChaveEAno.get(`${chave}|${anoFinal}`) ?? []);
+      if (linhas.length === 0) continue;
+      ({ colunas, tabela, nomes } = pivotarDmpl(linhas, escalaDivisor));
+    } else {
+      const linhasPorAno = [];
+      for (const [chaveAno, linhas] of contasPorChaveEAno) {
+        const [chave] = chaveAno.split("|");
+        if (def.chaves.includes(chave) && linhas.length > 0) linhasPorAno.push(linhas);
+      }
+      if (linhasPorAno.length === 0) continue;
+      ({ colunas, tabela, nomes } = pivotar(linhasPorAno, def.modo, escalaDivisor));
+    }
+
+    const ws = workbook.addWorksheet(aba);
     ws.addRow([`Valores em ${rotuloEscala}`]);
     ws.getCell("A1").font = { name: "Calibri", italic: true, size: 9, color: { argb: CF_GRAFITE } };
     ws.addRow(["CD_CONTA", "DS_CONTA", ...colunas]);
@@ -272,6 +356,7 @@ function estilizarAba(ws, casasDecimais) {
 
 botaoGerar.addEventListener("click", async () => {
   if (!empresaSelecionada) return;
+  const tipo = seletorTipo.value;
   const anoInicial = Number(seletorAnoInicial.value);
   const anoFinal = Number(seletorAnoFinal.value);
   const escalaDivisor = Number(seletorEscala.value);
@@ -285,27 +370,47 @@ botaoGerar.addEventListener("click", async () => {
   const anos = [];
   for (let a = anoInicial; a <= anoFinal; a++) anos.push(a);
 
+  // 1 chamada por (ano x demonstrativo) — DMPL so no ano final, ja que
+  // e uma matriz do exercicio mais recente, nao uma serie por ano.
+  const chaves = Object.keys(DEMONSTRATIVOS_POR_TIPO[tipo]);
+  const pedidos = [];
+  for (const ano of anos) {
+    for (const chave of chaves) {
+      if (chave === "DMPL" && ano !== anoFinal) continue;
+      pedidos.push({ ano, chave });
+    }
+  }
+
   botaoGerar.disabled = true;
-  rotuloBotao.textContent = anos.length > 1 ? `BUSCANDO ${anos.length} ANOS...` : "GERANDO...";
+  rotuloBotao.textContent = pedidos.length > 1 ? `BUSCANDO ${pedidos.length} ARQUIVOS...` : "GERANDO...";
   statusDownload.className = "status-download";
-  statusDownload.textContent = "Baixando e processando dados direto da CVM — pode levar alguns segundos por ano...";
+  statusDownload.textContent = "Baixando e processando dados direto da CVM — pode levar alguns segundos...";
 
   try {
-    const respostas = await Promise.all(anos.map((ano) => extrairAno(empresaSelecionada.cnpj, ano).then((r) => [ano, r]).catch((e) => [ano, { erro: e.message }])));
-    const respostasPorAno = new Map();
+    const respostas = await Promise.all(
+      pedidos.map(({ ano, chave }) =>
+        extrairDemonstrativo(empresaSelecionada.cnpj, tipo, ano, chave)
+          .then((r) => ({ ano, chave, resp: r }))
+          .catch((e) => ({ ano, chave, erro: e.message })),
+      ),
+    );
+
+    const contasPorChaveEAno = new Map();
     let nomeEmpresa = null;
-    for (const [ano, resp] of respostas) {
-      if (resp.erro) continue;
-      respostasPorAno.set(ano, resp);
+    let algumSucesso = false;
+    for (const { ano, chave, resp, erro } of respostas) {
+      if (erro) continue;
+      algumSucesso = true;
+      contasPorChaveEAno.set(`${chave}|${ano}`, resp.contas);
       if (!nomeEmpresa) nomeEmpresa = resp.empresa;
     }
 
-    if (respostasPorAno.size === 0) {
+    if (!algumSucesso) {
       throw new Error("nenhum dos anos selecionados teve dados encontrados");
     }
 
     rotuloBotao.textContent = "MONTANDO PLANILHA...";
-    const { workbook, algumaAba } = await montarWorkbook(anos, respostasPorAno, escalaDivisor);
+    const { workbook, algumaAba } = await montarWorkbook(tipo, anoFinal, contasPorChaveEAno, escalaDivisor);
     if (!algumaAba) throw new Error("nenhuma demonstração encontrada nesse período");
 
     const wsResumo = workbook.addWorksheet("Resumo");
@@ -319,7 +424,7 @@ botaoGerar.addEventListener("click", async () => {
       ["Empresa", nomeEmpresa || empresaSelecionada.nome],
       ["CNPJ", empresaSelecionada.cnpj],
       ["Período", anoInicial === anoFinal ? String(anoInicial) : `${anoInicial} a ${anoFinal}`],
-      ["Tipo de documento", "DFP"],
+      ["Tipo de documento", ROTULO_TIPO[tipo]],
       ["Escala de exibição", ROTULO_ESCALA[String(escalaDivisor)]],
     ];
     let linhaAtual = 4;
@@ -341,7 +446,7 @@ botaoGerar.addEventListener("click", async () => {
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
     const periodoArquivo = anoInicial === anoFinal ? String(anoInicial) : `${anoInicial}-${anoFinal}`;
-    const nomeArquivo = `demonstracoes_${empresaSelecionada.cnpj.replace(/\D/g, "")}_${periodoArquivo}.xlsx`;
+    const nomeArquivo = `${tipo.toLowerCase()}_${empresaSelecionada.cnpj.replace(/\D/g, "")}_${periodoArquivo}.xlsx`;
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
     link.download = nomeArquivo;
