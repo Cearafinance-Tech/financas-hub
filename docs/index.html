@@ -10,20 +10,36 @@
   <link rel="stylesheet" href="css/tokens.css">
   <link rel="stylesheet" href="css/site.css">
   <link rel="icon" href="assets/logo/mark-ink-bold.svg">
+  <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 </head>
 <body>
+  <div class="faixa-eixo" aria-hidden="true"></div>
+
   <div class="container">
     <header class="topo">
-      <img src="assets/logo/mark-ink.svg" alt="CF Tech">
-      <span class="wordmark">CF TECH</span>
+      <img class="logo-grande" src="assets/logo/mark-ink.svg" alt="CF Tech">
+      <div class="lockup">
+        <div class="wordmark">CF&nbsp;<span class="roxo">TECH</span></div>
+        <div class="tagline">CEARÁ FINANCE</div>
+      </div>
       <span class="tag">FINANÇAS HUB</span>
     </header>
 
-    <h1>Demonstrações financeiras, direto da CVM.</h1>
+    <div class="ticker" aria-hidden="true">
+      <span>SEM CADASTRO</span>
+      <span class="ponto">·</span>
+      <span>SEM ARMAZENAMENTO</span>
+      <span class="ponto">·</span>
+      <span>DADOS DIRETO DA CVM</span>
+      <span class="cursor">_</span>
+    </div>
+
+    <h1>Demonstrações financeiras,<br>direto da CVM.</h1>
     <p class="subtitulo">
-      Busque uma empresa listada, escolha o ano e baixe as demonstrações
-      anuais (DFP) já organizadas em abas — sem cadastro, sem nada
-      armazenado. Cada consulta busca os dados na hora, direto da CVM.
+      Busque uma empresa listada, escolha o período e a escala dos números,
+      e baixe as demonstrações anuais (DFP) já organizadas em abas — sem
+      cadastro, sem nada armazenado. Cada consulta busca os dados na hora,
+      direto da CVM.
     </p>
 
     <div class="busca">
@@ -40,18 +56,38 @@
       <div class="empresa-nome" id="empresa-nome"></div>
       <div class="empresa-meta" id="empresa-meta"></div>
 
-      <div class="campo">
-        <label for="seletor-ano">ANO DE REFERÊNCIA (DFP)</label>
-        <select id="seletor-ano"></select>
+      <div class="linha-campos">
+        <div class="campo">
+          <label for="seletor-ano-inicial">DE (ANO)</label>
+          <select id="seletor-ano-inicial"></select>
+        </div>
+        <div class="campo">
+          <label for="seletor-ano-final">ATÉ (ANO)</label>
+          <select id="seletor-ano-final"></select>
+        </div>
+        <div class="campo">
+          <label for="seletor-escala">ESCALA DOS VALORES</label>
+          <select id="seletor-escala">
+            <option value="1">Unidade (R$)</option>
+            <option value="1000">Milhares (R$ mil)</option>
+            <option value="1000000" selected>Milhões (R$ MM)</option>
+            <option value="1000000000">Bilhões (R$ bi)</option>
+          </select>
+        </div>
       </div>
 
       <p class="aviso-dmpl">
         Inclui Balanço Patrimonial (Ativo/Passivo), DRE, Fluxo de Caixa e
         DVA, consolidado. A Demonstração das Mutações do Patrimônio
-        Líquido (DMPL) não está disponível nesta versão.
+        Líquido (DMPL) não está disponível nesta versão. Os valores são
+        extraídos sempre no total original — a escala acima só muda como
+        eles aparecem na planilha.
       </p>
 
-      <button id="botao-gerar" class="gerar">BAIXAR EXCEL</button>
+      <button id="botao-gerar" class="gerar">
+        <span class="rotulo">BAIXAR EXCEL</span>
+        <span class="spinner" aria-hidden="true"></span>
+      </button>
       <div id="status-download" class="status-download"></div>
     </div>
 
